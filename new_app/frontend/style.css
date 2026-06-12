@@ -2805,3 +2805,192 @@ h2,
   background: #000;
 }
 /* === CHALLENGE SELECTION DOME REFINEMENT END === */
+
+/* ===================================================
+   PI PERFORMANCE MODE
+   Activated by ?pi=1 — adds class "pi-mode" to <html>.
+   Only disables GPU-intensive rendering; game logic,
+   layout, and functional loading animations unchanged.
+   =================================================== */
+
+/* 1. backdrop-filter — removed (13 instances) */
+html.pi-mode .panel,
+html.pi-mode #screen-prompt .panel,
+html.pi-mode #lang-switcher,
+html.pi-mode .cinematic-toggle-btn,
+html.pi-mode .loading-overlay,
+html.pi-mode .bias-info-overlay,
+html.pi-mode .language-card,
+html.pi-mode #back-bias-games-btn.chamber-back-btn,
+html.pi-mode .intro-skip-btn,
+html.pi-mode #screen-bias-games .bias-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html.pi-mode .panel,
+html.pi-mode #screen-prompt .panel,
+html.pi-mode #lang-switcher,
+html.pi-mode .cinematic-toggle-btn,
+html.pi-mode .loading-overlay,
+html.pi-mode .language-card,
+html.pi-mode #back-bias-games-btn.chamber-back-btn,
+html.pi-mode .intro-skip-btn,
+html.pi-mode #screen-bias-games .bias-card {
+  background: rgba(2, 6, 23, 0.85);
+}
+
+html.pi-mode .bias-info-overlay {
+  background: rgba(0, 0, 0, 0.88);
+}
+
+html.pi-mode .language-panel {
+  background: transparent;
+}
+
+/* 2. box-shadow — large blur radii reduced (21 instances across 12 rules) */
+html.pi-mode .panel,
+html.pi-mode #screen-prompt .panel {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+html.pi-mode .primary-btn {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+html.pi-mode .button:hover,
+html.pi-mode .btn:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+html.pi-mode .card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+html.pi-mode .video-shell {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+html.pi-mode .language-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+html.pi-mode .language-card:hover,
+html.pi-mode .language-card:focus-visible {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+html.pi-mode .language-card.is-selected {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+html.pi-mode #screen-bias-games .bias-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+html.pi-mode #screen-bias-games .bias-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+html.pi-mode #back-bias-games-btn.chamber-back-btn,
+html.pi-mode #back-bias-games-btn.chamber-back-btn:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+html.pi-mode #screen-bias-games .panel::after {
+  box-shadow: none;
+}
+
+/* 3. 3D transforms — flattened (14 instances across 10 selectors) */
+html.pi-mode #screen-bias-games {
+  perspective: none;
+  transform-style: flat;
+}
+
+html.pi-mode #screen-bias-games .container {
+  transform-style: flat;
+}
+
+html.pi-mode #screen-bias-games .panel {
+  transform: none;
+  transform-style: flat;
+  transition: none;
+}
+
+html.pi-mode #screen-bias-games .panel::before,
+html.pi-mode #screen-bias-games .panel::after {
+  display: none;
+}
+
+html.pi-mode #screen-bias-games .bias-grid {
+  perspective: none;
+  transform-style: flat;
+}
+
+html.pi-mode #screen-bias-games .bias-row {
+  transform-style: flat;
+}
+
+html.pi-mode #screen-bias-games .bias-card {
+  transform-style: flat;
+  backface-visibility: visible;
+}
+
+html.pi-mode #screen-bias-games .bias-card.pos-left,
+html.pi-mode #screen-bias-games .bias-card.pos-right {
+  transform: none;
+  opacity: 1;
+}
+
+html.pi-mode #screen-bias-games .bias-card.pos-center {
+  transform: none;
+}
+
+html.pi-mode #screen-bias-games .bias-card:hover {
+  transform: scale(1.02);
+}
+
+/* 4. Infinite animations — stopped (8 decorative selectors; loading indicators preserved) */
+html.pi-mode .blob {
+  animation: none;
+}
+
+html.pi-mode #screen-prompt::before {
+  animation: none;
+  transform: scale(1);
+}
+
+html.pi-mode #screen-prompt .container::before {
+  animation: none;
+  filter: none;
+}
+
+html.pi-mode #screen-prompt .panel {
+  animation: none;
+}
+
+html.pi-mode #screen-bias-games .bias-card {
+  animation: none;
+  opacity: 1;
+}
+
+html.pi-mode #screen-bias-games .panel::before {
+  animation: none;
+}
+
+html.pi-mode .language-card.is-selected {
+  animation: none;
+}
+
+html.pi-mode body.is-entering-bias-chamber #screen-bias-games .bias-card {
+  animation: none;
+  opacity: 1;
+}
+
+/* 5. Decorative filter:blur — hidden (4 targets: blobs, cursor glow, card glow, fog) */
+html.pi-mode .cursor-glow,
+html.pi-mode #background-blobs,
+html.pi-mode .language-card-glow {
+  display: none;
+}
+/* === PI PERFORMANCE MODE END ===*/

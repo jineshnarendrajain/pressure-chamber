@@ -1,4 +1,8 @@
-﻿const appState = {
+﻿if (new URLSearchParams(window.location.search).get('pi') === '1') {
+  document.documentElement.classList.add('pi-mode');
+}
+
+const appState = {
   userName: "",
   language: "en",
   translations: {},
