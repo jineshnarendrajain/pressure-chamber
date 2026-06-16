@@ -1,26 +1,32 @@
 {
   "right_hand": {
-    "title": "Default Assumption Bias",
-    "description": "When information is missing, models assume the most common pattern instead of considering alternatives. In this case, 70% of the people in the world are right handed , so the model shows the image of a right handed person."
+    "en": { "title": "Default Assumption Bias", "description": "When information is missing, models assume the most common pattern instead of considering alternatives. In this case, 70% of the people in the world are right handed, so the model shows the image of a right handed person." },
+    "es": { "title": "Sesgo de Suposición por Defecto", "description": "Cuando falta información, los modelos asumen el patrón más común en lugar de considerar alternativas. En este caso, el 70% de las personas son diestras, por lo que el modelo muestra la imagen de una persona diestra." },
+    "ca": { "title": "Biaix d'Assumpció per Defecte", "description": "Quan manca informació, els models assumeixen el patró més comú en lloc de considerar alternatives. En aquest cas, el 70% de les persones són dretanes, de manera que el model mostra la imatge d'una persona dretana." }
   },
   "gender": {
-    "title": "Gender Stereotyping",
-    "description": "Models often associate professions and powerful roles with males due to biased training data."
+    "en": { "title": "Gender Stereotyping", "description": "Models often associate professions and powerful roles with males due to biased training data." },
+    "es": { "title": "Estereotipos de Género", "description": "Los modelos suelen asociar las profesiones y los roles de poder con hombres debido a datos de entrenamiento sesgados." },
+    "ca": { "title": "Estereotips de Gènere", "description": "Els models sovint associen les professions i els rols de poder amb homes a causa de dades d'entrenament esbiaixades." }
   },
   "language": {
-    "title": "Cultural Misalignment",
-    "description": "Different languages influence how scenes and identities are interpreted by the model."
+    "en": { "title": "Cultural Misalignment", "description": "Different languages influence how scenes and identities are interpreted by the model." },
+    "es": { "title": "Desalineación Cultural", "description": "Los diferentes idiomas influyen en cómo el modelo interpreta escenas e identidades." },
+    "ca": { "title": "Desalineació Cultural", "description": "Els diferents idiomes influeixen en com el model interpreta escenes i identitats." }
   },
   "architecture": {
-    "title": "Trigger word bias",
-    "description": "AI Models often associate trigger words for visual elements, in this case the word 'smart' is often associated with a sci-fi aesthetic."
+    "en": { "title": "Trigger Word Bias", "description": "AI models often associate trigger words with specific visual elements. In this case, the word 'smart' is often associated with a sci-fi aesthetic." },
+    "es": { "title": "Sesgo de Palabras Clave", "description": "Los modelos de IA suelen asociar palabras clave con elementos visuales específicos. En este caso, la palabra 'inteligente' se asocia frecuentemente con una estética de ciencia ficción." },
+    "ca": { "title": "Biaix de Paraules Clau", "description": "Els models d'IA sovint associen paraules clau amb elements visuals específics. En aquest cas, la paraula 'intel·ligent' s'associa freqüentment amb una estètica de ciència-ficció." }
   },
-  "authority": {
-    "title": "Focus Collapse Bias",
-    "description": "The model emphasizes dominant subjects and suppresses surrounding context."
+  "global_south_flattening": {
+    "en": { "title": "Global South Flattening Bias", "description": "Cities in Africa, India, South America, and the Middle East are reduced to poverty, chaos, markets, dust, or crowds instead of their full complexity." },
+    "es": { "title": "Sesgo de Aplanamiento del Sur Global", "description": "Las ciudades de África, India, Sudamérica y Oriente Medio se reducen a pobreza, caos, mercados, polvo o multitudes en lugar de su complejidad real." },
+    "ca": { "title": "Biaix d'Aplanament del Sud Global", "description": "Les ciutats d'Àfrica, Índia, Amèrica del Sud i Orient Mitjà es redueixen a pobresa, caos, mercats, pols o multituds en lloc de la seva complexitat real." }
   },
-  "friction": {
-    "title": "Flattening Bias",
-    "description": "Crowded and complex environments are reduced into clean, frictionless scenes."
+  "nurse": {
+    "en": { "title": "Occupational Gender Bias", "description": "Care roles like nursing are almost always rendered as female by AI models, reflecting a historical association between care work and women — and erasing the significant portion of male nurses in reality." },
+    "es": { "title": "Sesgo de Género Ocupacional", "description": "Los roles de cuidado como la enfermería casi siempre son representados como femeninos por los modelos de IA, reflejando una asociación histórica entre el trabajo de cuidado y las mujeres, y borrando la proporción significativa de enfermeros hombres en la realidad." },
+    "ca": { "title": "Biaix de Gènere Ocupacional", "description": "Els rols de cura com la infermeria gairebé sempre són representats com a femenins pels models d'IA, reflectint una associació històrica entre el treball de cura i les dones, i esborrant la proporció significativa d'infermers homes en la realitat." }
   }
 }

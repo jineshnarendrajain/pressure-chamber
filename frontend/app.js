@@ -1097,7 +1097,7 @@ const BIAS_GAMES = [
     instruction: "Write a prompt that preserves local architectural detail.",
     bias: "Detail Loss Bias",
     mappedTaskId: 5,
-    filterType: "architecture",
+    filterType: "language",
     target_image: "/images/targets/task_05.png",
     explanation: "Bias appears as lost texture: repeated copying collapses detail into a flatter image.",
   },

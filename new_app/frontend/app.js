@@ -58,6 +58,7 @@ const els = {
 
   generatedImage: document.getElementById("generated-image"),
   targetImage: document.getElementById("target-image"),
+  targetLabel: document.querySelector('.result-left h3'),
   scoreLine: document.getElementById("score-line"),
   resultTaskId: document.getElementById("result-task-id"),
   resultScore: document.getElementById("result-score"),
@@ -141,7 +142,7 @@ function renderBiasGames() {
     card.innerHTML = `
       <div class="task-card-top">
         <div class="task-meta">
-          <h3>${game.title}</h3>
+          <h3>${gameText(game, "title")}</h3>
           <p class="task-category">${game.instruction}</p>
           <p class="task-bias">${t("biasPrefix")} ${game.bias}</p>
         </div>
@@ -359,6 +360,7 @@ async function submitPrompt() {
 
     const score = Number(payload.score || 0);
     const generatedUrl = payload.generated_image_url || payload.generated_image;
+    let biasScore = null;
 
     if (!appState.completedTasks.includes(appState.currentTask.id)) {
       appState.completedTasks.push(appState.currentTask.id);
@@ -372,8 +374,102 @@ async function submitPrompt() {
     els.generatedImage.loading = "lazy";
     els.targetImage.loading = "lazy";
     if (isBiasPlay) {
-      els.generatedImage.removeAttribute("src");
-      els.generatedImage.style.display = "none";
+      const biasFolder = `bias_${appState.currentTask.cardIndex + 1}`;
+
+      let files = [];
+      try {
+        const fakeRes = await fetch(`/fake-generated/${biasFolder}`);
+        const fakeData = await fakeRes.json();
+        files = Array.isArray(fakeData.images) ? fakeData.images : [];
+      } catch {
+        files = [];
+      }
+
+      let chosenFile = null;
+      if (files.length) {
+        const stripExt = (name) => name.replace(/\.[^.]+$/, "").toLowerCase();
+        const pickMatch = (baseNames) => {
+          const wanted = (Array.isArray(baseNames) ? baseNames : []).map((b) => String(b).toLowerCase());
+          const matches = files.filter((f) => wanted.includes(stripExt(f)));
+          return matches.length ? matches[Math.floor(Math.random() * matches.length)] : null;
+        };
+
+        const rules = (await getFakeGenRules())[biasFolder] || {};
+        const promptLower = prompt.toLowerCase();
+
+        // c. keyword rules — first rule whose keyword is a substring of the prompt
+        const keywordRules = Array.isArray(rules.keyword_rules) ? rules.keyword_rules : [];
+        for (const rule of keywordRules) {
+          const keywords = Array.isArray(rule.keywords) ? rule.keywords : [];
+          if (keywords.some((kw) => promptLower.includes(String(kw).toLowerCase()))) {
+            chosenFile = pickMatch(rule.images);
+            break;
+          }
+        }
+
+        // d. length rules — first rule whose [min, max] contains the prompt length
+        if (!chosenFile) {
+          const lengthRules = Array.isArray(rules.length_rules) ? rules.length_rules : [];
+          for (const rule of lengthRules) {
+            const min = typeof rule.min === "number" ? rule.min : 0;
+            const max = rule.max === null || rule.max === undefined ? Infinity : rule.max;
+            if (prompt.length >= min && prompt.length <= max) {
+              chosenFile = pickMatch(rule.images);
+              break;
+            }
+          }
+        }
+
+        // e. fallback — random from files not reserved by any keyword rule
+        if (!chosenFile) {
+          const reserved = new Set();
+          keywordRules.forEach((rule) => {
+            (Array.isArray(rule.images) ? rule.images : []).forEach((b) => reserved.add(String(b).toLowerCase()));
+          });
+          const unreserved = files.filter((f) => !reserved.has(stripExt(f)));
+          const pool = unreserved.length ? unreserved : files;
+          chosenFile = pool[Math.floor(Math.random() * pool.length)];
+        }
+      }
+
+      if (chosenFile) {
+        const strippedChosen = chosenFile.replace(/\.[^.]+$/, "").toLowerCase();
+        const rules = (await getFakeGenRules())[biasFolder] || {};
+        const keywordRules = Array.isArray(rules.keyword_rules)
+          ? rules.keyword_rules : [];
+
+        // Build set of all reserved true image base names
+        const trueBaseNames = new Set();
+        keywordRules.forEach(rule => {
+          (rule.images || []).forEach(img =>
+            trueBaseNames.add(img.toLowerCase()));
+        });
+
+        const isTrue = trueBaseNames.has(strippedChosen);
+
+        if (isTrue) {
+          // Keyword-matched true image: score 85–95
+          biasScore = Math.floor(Math.random() * 11) + 85;
+        } else {
+          // Default/fallback image: score 20–65
+          biasScore = Math.floor(Math.random() * 46) + 20;
+        }
+
+        // Cap bias_3 and bias_5 always below 70
+        if (biasFolder === "bias_3" || biasFolder === "bias_5") {
+          biasScore = Math.min(biasScore, 65);
+        }
+
+        appState.scores[appState.currentTask.id] = biasScore;
+      }
+
+      if (chosenFile) {
+        els.generatedImage.style.display = "block";
+        els.generatedImage.src = `/images/fake_generated/${biasFolder}/${chosenFile}`;
+      } else {
+        els.generatedImage.removeAttribute("src");
+        els.generatedImage.style.display = "none";
+      }
     } else {
       els.generatedImage.style.display = "block";
       els.generatedImage.src = generatedUrl;
@@ -407,7 +503,7 @@ async function submitPrompt() {
     }
 
     if (isBiasPlay) {
-      els.resultTaskId.textContent = `${t("biasModeResult")} — ${payload.task_title || appState.currentTask.title}`;
+      els.resultTaskId.textContent = `${t("biasModeResult")} — ${payload.task_title || gameText(appState.currentBiasGame, "title")}`;
       els.resultScore.classList.add("score-bias-mode");
     } else {
       els.resultTaskId.textContent = `${t("taskIdLabel")}: ${payload.task_id} - ${payload.task_title || appState.currentTask.title}`;
@@ -415,8 +511,16 @@ async function submitPrompt() {
     }
 
     if (isBiasPlay) {
-      els.resultScore.style.display = "none";
-      els.scoreLine.style.display = "none";
+      if (biasScore !== null) {
+        els.resultScore.style.display = "block";
+        els.scoreLine.style.display = "block";
+        els.resultScore.textContent = `${biasScore}`;
+        applyScoreColor(biasScore);
+        els.scoreLine.textContent = `${t("similarityScore")}: ${biasScore}`;
+      } else {
+        els.resultScore.style.display = "none";
+        els.scoreLine.style.display = "none";
+      }
     } else {
       els.resultScore.style.display = "block";
       els.scoreLine.style.display = "block";
@@ -425,8 +529,10 @@ async function submitPrompt() {
       els.scoreLine.textContent = `${t("similarityScore")}: ${score}`;
     }
     if (isBiasPlay) {
-      const data = biasExplanationData[appState.currentTask.filterType] || {
-        title: appState.currentTask.bias || "Bias Pattern",
+      const filterData = biasExplanationData[appState.currentTask.filterType];
+      const lang = appState.language || "en";
+      const data = (filterData && (filterData[lang] || filterData["en"])) || {
+        title: (appState.currentBiasGame && gameText(appState.currentBiasGame, "bias")) || "Bias Pattern",
         description: "",
       };
 
@@ -437,6 +543,12 @@ async function submitPrompt() {
       els.explanationLine.textContent = payload.explanation || "This output reflects embedded data bias patterns.";
     }
     els.promptLine.textContent = `${t("promptUsed")}: ${payload.user_prompt || prompt}`;
+
+    if (appState.currentTask.id === 5) {
+      els.targetLabel.textContent = "Reference";
+    } else {
+      els.targetLabel.textContent = t("targetLabel");
+    }
 
     showScreen("result");
   } catch (err) {
@@ -602,10 +714,42 @@ document.querySelectorAll(".lang-btn").forEach((btn) => {
 });
 
 document.querySelectorAll(".lang-pill").forEach((pill) => {
-  pill.addEventListener("click", () => {
+  pill.addEventListener("click", async () => {
     appState.language = pill.dataset.lang;
     persistLanguage(appState.language);
     applyTranslations();
+    loadBiasGames();
+    biasCaptionCache = null;
+    biasExplanationData = {};
+    await loadBiasExplanations();
+
+    const activeName = getCurrentScreenName();
+
+    // Re-render prompt screen caption if currently on prompt screen
+    if (activeName === "prompt" && appState.currentBiasGame &&
+        typeof appState.currentTask?.cardIndex === "number") {
+      const promptCaption = await getBiasCaption(
+        appState.currentBiasGame,
+        appState.currentTask.cardIndex
+      );
+      els.promptInstruction.textContent = promptCaption;
+    }
+
+    // Re-render result screen bias text if currently on result screen
+    if (activeName === "result" && appState.currentTask?.category ===
+        "Bias Playground") {
+      const filterData = biasExplanationData[appState.currentTask.filterType];
+      const lang = appState.language || "en";
+      const data = (filterData && (filterData[lang] || filterData["en"])) || {
+        title: (appState.currentBiasGame &&
+                gameText(appState.currentBiasGame, "bias")) || "Bias Pattern",
+        description: "",
+      };
+      els.biasLine.textContent = `${t("biasCategory")}: ${data.title}`;
+      els.explanationLine.textContent = data.description;
+      els.resultTaskId.textContent = `${t("biasModeResult")} — ${
+        gameText(appState.currentBiasGame, "title")}`;
+    }
   });
 });
 
@@ -629,12 +773,16 @@ els.generateBtn.addEventListener("click", submitPrompt);
 // ============================================================
 els.backHubBtn.addEventListener("click", () => {
   if (appState.completedTasks.length >= 3) {
+    appState.tasks = BIAS_GAMES
+      .filter(game => appState.completedTasks.includes(game.mappedTaskId))
+      .map(game => ({ id: game.mappedTaskId, title: gameText(game, "title") }));
     showFinal();
     return;
   }
   clearTimeout(biasGameTransitionTimer);
   appState.currentBiasGame = null;
   appState.currentTask = null;
+  loadBiasGames();
   showScreen("biasGames");
 });
 // ============================================================
@@ -744,74 +892,73 @@ initBackgroundBlobs();
 const BIAS_GAMES = [
   {
     id: "bias_right",
-    title: "The Dominant Hand",
-    instruction: "Write a prompt without assuming handedness.",
-    bias: "Default Assumption Bias",
+    title: { en: "The Akward Reach", es: "El Alcance Dominante", ca: "L'Abast Dominant" },
+    instruction: { en: "Write a prompt without assuming handedness.", es: "Escribe un prompt sin asumir la mano dominante.", ca: "Escriu un prompt sense assumir la mà dominant." },
+    bias: { en: "Default Assumption Bias", es: "Sesgo de Suposición por Defecto", ca: "Biaix d'Assumpció per Defecte" },
     mappedTaskId: 1,
     filterType: "right_hand",
     target_image: "/images/targets/task_01.png",
-    explanation: "Bias appears as missing information: the system loses parts of the scene instead of seeing the full input.",
+    explanation: { en: "Bias appears as missing information: the system loses parts of the scene instead of seeing the full input.", es: "El sesgo aparece como información ausente: el sistema pierde partes de la escena en lugar de ver la entrada completa.", ca: "El biaix apareix com a informació absent: el sistema perd parts de l'escena en lloc de veure l'entrada completa." },
   },
   {
     id: "bias_gender",
-    title: "The Glass Ceiling",
-    instruction: "Write a prompt without assuming gender roles.",
-    bias: "Misrepresentation Bias",
+    title: { en: "Who's the BOSS", es: "¿Quién Manda Aquí?", ca: "Qui Mana Aquí?" },
+    instruction: { en: "Write a prompt without assuming gender roles.", es: "Escribe un prompt sin asumir roles de género.", ca: "Escriu un prompt sense assumir rols de gènere." },
+    bias: { en: "Misrepresentation Bias", es: "Sesgo de Subrepresentación", ca: "Biaix de Subrepresentació" },
     mappedTaskId: 8,
     filterType: "gender",
     target_image: "/images/targets/task_08.png",
-    explanation: "Bias appears as projection: the system stamps an assumption onto the scene before judging it.",
+    explanation: { en: "Bias appears as projection: the system stamps an assumption onto the scene before judging it.", es: "El sesgo aparece como proyección: el sistema impone una suposición sobre la escena antes de evaluarla.", ca: "El biaix apareix com a projecció: el sistema imposa una suposició sobre l'escena abans d'avaluar-la." },
   },
   {
-    id: "bias_language",
-    title: "The Aesthetic Override",
-    instruction: "Write a prompt without assuming language or culture.",
-    bias: "Cultural Misalignment Bias",
+    id: "bias_keyword",
+    title: { en: "Tunnel Vision", es: "Visión Túnel", ca: "Visió Túnel" },
+    instruction: { en: "Write a prompt without assuming language or culture.", es: "Escribe un prompt sin asumir idioma ni cultura.", ca: "Escriu un prompt sense assumir idioma ni cultura." },
+    bias: { en: "Cultural Misalignment Bias", es: "Sesgo de Desalineación Cultural", ca: "Biaix de Desalineació Cultural" },
     mappedTaskId: 4,
     filterType: "language",
     target_image: "/images/targets/task_04.png",
-    explanation: "Bias appears as misalignment: duplicated signals make the input harder to read cleanly.",
+    explanation: { en: "Bias appears as misalignment: duplicated signals make the input harder to read cleanly.", es: "El sesgo aparece como desalineación: las señales duplicadas dificultan una lectura limpia de la entrada.", ca: "El biaix apareix com a desalineació: els senyals duplicats dificulten una lectura neta de l'entrada." },
   },
   {
-    id: "bias_architecture",
-    title: "The Default Couple",
-    instruction: "Write a prompt that preserves local architectural detail.",
-    bias: "Detail Loss Bias",
+    id: "bias_couple",
+    title: { en: "The Invisible Spectrum", es: "El Espectro Invisible", ca: "L'Espectre Invisible" },
+    instruction: { en: "Write a prompt that preserves local architectural detail.", es: "Escribe un prompt que preserve el detalle arquitectónico local.", ca: "Escriu un prompt que preservi el detall arquitectònic local." },
+    bias: { en: "Detail Loss Bias", es: "Sesgo de Pérdida de Detalle", ca: "Biaix de Pèrdua de Detall" },
     mappedTaskId: 5,
     filterType: "architecture",
     target_image: "/images/targets/task_05.png",
-    explanation: "Bias appears as lost texture: repeated copying collapses detail into a flatter image.",
+    explanation: { en: "Bias appears as lost texture: repeated copying collapses detail into a flatter image.", es: "El sesgo aparece como textura perdida: la copia repetida colapsa el detalle en una imagen más plana.", ca: "El biaix apareix com a textura perduda: la còpia repetida col·lapsa el detall en una imatge més plana." },
   },
   {
-    id: "bias_authority",
-    title: "The Expiry Date",
-    instruction: "Write a prompt that does not over-focus on authority.",
-    bias: "Focus Collapse Bias",
+    id: "bias_global_south_flattening",
+    title: { en: "No Complexity Zone", es: "Zona Sin Complejidad", ca: "Zona Sense Complexitat" },
+    instruction: { en: "Write a prompt that preserves the everyday complexity and variety of a city, without defaulting to poverty or chaos.", es: "Escribe un prompt que preserve la complejidad y variedad cotidiana de una ciudad, sin recurrir a la pobreza o el caos.", ca: "Escriu un prompt que preservi la complexitat i varietat quotidiana d'una ciutat, sense recórrer a la pobresa o el caos." },
+    bias: { en: "Global South Flattening Bias", es: "Sesgo de Aplanamiento del Sur Global", ca: "Biaix d'Aplanament del Sud Global" },
     mappedTaskId: 7,
-    filterType: "authority",
+    filterType: "global_south_flattening",
     target_image: "/images/targets/task_07.png",
-    explanation: "Bias appears as narrowed attention: most information is suppressed around one over-important center.",
+    explanation: { en: "Bias appears as flattening: cities in Africa, India, South America, and the Middle East are reduced to poverty, chaos, markets, dust, or crowds instead of their full complexity.", es: "El sesgo aparece como aplanamiento: las ciudades de África, India, Sudamérica y Oriente Medio se reducen a pobreza, caos, mercados, polvo o multitudes en lugar de su complejidad real.", ca: "El biaix apareix com a aplanament: les ciutats d'Àfrica, Índia, Amèrica del Sud i Orient Mitjà es redueixen a pobresa, caos, mercats, pols o multituds en lloc de la seva complexitat real." },
   },
   {
-    id: "bias_friction",
-    title: "Coming Soon",
-    instruction: "Write a prompt that keeps complexity, friction, and context.",
-    bias: "Flattening Bias",
-    mappedTaskId: 10,
-    filterType: "friction",
-    target_image: "/images/targets/task_10.png",
-    explanation: "Bias appears as flattening: color and nuance are stripped away until the scene feels simplified.",
+    id: "bias_nurse",
+    title: { en: "The Missing Brother", es: "El Hermano Invisible", ca: "El Germà Invisible" },
+    instruction: { en: "Write a prompt for a nurse without specifying gender.", es: "Escribe un prompt para un enfermero sin especificar género.", ca: "Escriu un prompt per a un infermer sense especificar gènere." },
+    bias: { en: "Occupational Gender Bias", es: "Sesgo de Género Ocupacional", ca: "Biaix de Gènere Ocupacional" },
+    mappedTaskId: 3,
+    filterType: "nurse",
+    target_image: "/images/targets/task_03.png",
+    explanation: { en: "Bias appears as a gendered default: care roles like nursing are almost always rendered as female, erasing the significant portion of male nurses in the real world.", es: "El sesgo aparece como un género por defecto: los roles de cuidado como la enfermería casi siempre se representan como femeninos, borrando la proporción significativa de enfermeros hombres en el mundo real.", ca: "El biaix apareix com un gènere per defecte: els rols de cura com la infermeria gairebé sempre es representen com a femenins, esborrant la proporció significativa d'infermers homes en el món real." },
   },
 ];
 
-const BIAS_PREVIEW_IMAGES = [
-  "/images/new_test_target/bias_1.jpeg",
-  "/images/new_test_target/bias_2.AVIF",
-  "/images/new_test_target/bias_1.jpeg",
-  "/images/new_test_target/bias_4.png",
-  "/images/new_test_target/bias_1.jpeg",
-  "/images/new_test_target/bias_1.jpeg",
-];
+function gameText(game, field) {
+  const val = game[field];
+  if (val && typeof val === "object") {
+    return val[appState.language] || val["en"] || "";
+  }
+  return val || "";
+}
 
 const biasLandscapeShowScreen = showScreen;
 showScreen = function showLandscapeScreen(name) {
@@ -896,17 +1043,21 @@ function getBiasTargetImageCandidates(game, index) {
 
 // === BIAS CAPTION RESOLVER START ===
 let biasCaptionCache = null;
+let biasCaptionLang = null;
 
 async function getBiasCaptions() {
-  if (biasCaptionCache) return biasCaptionCache;
+  if (biasCaptionCache && biasCaptionLang === appState.language)
+    return biasCaptionCache;
+  biasCaptionCache = null;
 
   try {
     const res = await fetch("/backend/captions.md");
     const text = await res.text();
     biasCaptionCache = {};
+    biasCaptionLang = appState.language;
 
     text.split(/\r?\n/).forEach((line) => {
-      const match = line.match(/^(bias_\d+)\s*=\s*(.*)$/);
+      const match = line.match(/^(bias_\d+(?:_[a-z]{2})?)\s*=\s*(.*)$/);
       if (!match) return;
 
       biasCaptionCache[match[1]] = match[2].trim();
@@ -920,9 +1071,29 @@ async function getBiasCaptions() {
 
 async function getBiasCaption(game, index) {
   const captions = await getBiasCaptions();
-  return captions[`bias_${index + 1}`] || "Try to recreate the target image.";
+  const lang = appState.language || "en";
+  return captions[`bias_${index + 1}_${lang}`]
+    || captions[`bias_${index + 1}_en`]
+    || "Try to recreate the target image.";
 }
 // === BIAS CAPTION RESOLVER END ===
+
+// === FAKE GENERATED RULES RESOLVER START ===
+let fakeGenRulesCache = null;
+
+async function getFakeGenRules() {
+  if (fakeGenRulesCache) return fakeGenRulesCache;
+
+  try {
+    const res = await fetch("/data/fake_generated_rules.json");
+    fakeGenRulesCache = await res.json();
+  } catch {
+    fakeGenRulesCache = {};
+  }
+
+  return fakeGenRulesCache;
+}
+// === FAKE GENERATED RULES RESOLVER END ===
 
 function loadBiasGames() {
   appState.biasGames = BIAS_GAMES.slice();
@@ -945,18 +1116,23 @@ function renderBiasGames() {
       const game = BIAS_GAMES[index];
 
       const card = document.createElement("article");
-      card.className = `bias-card ${posClasses[col]}`;
+      const isCompleted = appState.completedTasks.includes(game.mappedTaskId);
+      card.className = `bias-card ${posClasses[col]}${isCompleted ? " bias-card--completed" : ""}`;
       card.dataset.biasIndex = index;
       card.innerHTML = `
         <div class="task-card-top">
           <div class="task-meta">
-            <span class="bias-id">Bias 0${index + 1}</span>
-            <h3>${game.title}</h3>
+            <span class="bias-id">Challenge 0${index + 1}</span>
+            <h3>${gameText(game, "title")}</h3>
             <p class="task-category">${t("challengeInstruction")}</p>
           </div>
         </div>
-        <button class="button btn primary-btn" type="button">${t("playBtn")}</button>
+        ${isCompleted
+          ? `<div class="completed-label" style="text-align:center;padding:10px 0;opacity:0.6;font-family:inherit;font-size:0.9rem;letter-spacing:0.05em;color:#a0aec0;">✓ ${t("completedBtn") || "Completed"}</div>`
+          : `<button class="button btn primary-btn" type="button">${t("playBtn")}</button>`
+        }
       `;
+
       row.appendChild(card);
     }
 
@@ -971,6 +1147,7 @@ function initBiasCardDelegation() {
   els.biasGamesGrid.addEventListener("click", (e) => {
     const card = e.target.closest(".bias-card");
     if (!card) return;
+    if (card.classList.contains("bias-card--completed")) return;
     e.stopPropagation(); // prevent document fallback from also firing
     const index = parseInt(card.dataset.biasIndex, 10);
     if (!isNaN(index) && BIAS_GAMES[index]) openBiasGame(BIAS_GAMES[index], index);
@@ -995,6 +1172,7 @@ function initBiasCardDelegation() {
       ) {
         const index = parseInt(card.dataset.biasIndex, 10);
         if (!isNaN(index) && BIAS_GAMES[index]) {
+          if (card.classList.contains("bias-card--completed")) return;
           openBiasGame(BIAS_GAMES[index], index);
           return;
         }
@@ -1012,6 +1190,7 @@ async function openBiasGame(game, index) {
     ...game,
     id: game.mappedTaskId,
     category: "Bias Playground",
+    cardIndex: index,
     target_image: targetImagePath,
     target_image_candidates: getBiasTargetImageCandidates(game, index),
   };
@@ -1030,7 +1209,15 @@ async function openBiasGame(game, index) {
   updatePromptTargetImage();
   const preview = document.getElementById("challenge-preview");
   const previewImg = document.getElementById("challenge-preview-img");
-  previewImg.src = BIAS_PREVIEW_IMAGES[index];
+  const previewCandidates = getBiasTargetImageCandidates(game, index);
+  let previewSourceIndex = 0;
+  previewImg.onerror = () => {
+    previewSourceIndex += 1;
+    if (previewSourceIndex < previewCandidates.length) {
+      previewImg.src = previewCandidates[previewSourceIndex];
+    }
+  };
+  previewImg.src = previewCandidates[previewSourceIndex];
   preview.style.opacity = "1";
   preview.style.display = "block";
   clearTimeout(biasGameTransitionTimer);
@@ -1042,7 +1229,7 @@ async function openBiasGame(game, index) {
       preview.style.display = "none";
       preview.style.transition = "";
     }, 800);
-  }, 4000);
+  }, 2750);
 }
 
 // === BIAS LANDSCAPE SYSTEM END ===

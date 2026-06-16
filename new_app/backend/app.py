@@ -1,5 +1,6 @@
 import json
 import random
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -103,6 +104,62 @@ def frontend_files(filename):
         return send_from_directory(BASE_DIR, filename)
 
     return jsonify({"error": "Not found"}), 404
+
+
+@app.route("/fake-generated/<task_folder>", methods=["GET"])
+def fake_generated(task_folder):
+    folder = BASE_DIR / "images" / "fake_generated" / task_folder
+    allowed = {".png", ".jpg", ".jpeg", ".webp"}
+    if not folder.is_dir():
+        return jsonify({"images": []})
+    images = [
+        entry.name
+        for entry in folder.iterdir()
+        if entry.is_file() and entry.suffix.lower() in allowed
+    ]
+    return jsonify({"images": images})
+
+
+@app.route("/score-fake-generated", methods=["POST"])
+def score_fake_generated():
+    payload = request.get_json(force=True) or {}
+    bias_folder = str(payload.get("bias_folder") or "").strip()
+    generated_file = str(payload.get("generated_file") or "").strip()
+
+    if not re.fullmatch(r"bias_\d+", bias_folder):
+        return jsonify({"error": "Invalid bias_folder."}), 400
+    if not generated_file or "/" in generated_file or "\\" in generated_file or ".." in generated_file:
+        return jsonify({"error": "Invalid generated_file."}), 400
+
+    generated_path = BASE_DIR / "images" / "fake_generated" / bias_folder / generated_file
+    if not generated_path.exists():
+        return jsonify({"error": "Generated image not found."}), 404
+
+    target_dir = BASE_DIR / "images" / "new_test_target"
+    target_candidates = [
+        f"{bias_folder}.png",
+        f"{bias_folder}.jpeg",
+        f"{bias_folder}.jpg",
+        f"{bias_folder}.AVIF",
+        f"{bias_folder}.avif",
+        f"{bias_folder}.webp",
+    ]
+    target_path = None
+    for candidate in target_candidates:
+        p = target_dir / candidate
+        if p.exists():
+            target_path = p
+            break
+
+    if target_path is None:
+        return jsonify({"error": "Target image not found."}), 404
+
+    try:
+        score = calculate_similarity_score(generated_path, target_path)
+    except Exception:
+        score = 65
+
+    return jsonify({"score": score})
 
 
 @app.route("/start", methods=["POST"])
