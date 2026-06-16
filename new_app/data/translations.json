@@ -40,7 +40,7 @@
     "openBiasPlayground": "Open Bias Playground",
 
     "biasPlaygroundHeading": "Bias Playground",
-    "biasGamesHelper": "Choose a bias game and see how subtle assumptions change what the model shows.",
+    "biasGamesHelper": "Choose a challenge and see how subtle assumptions change how AI thinks.",
     "biasMode": "BIAS MODE",
 
     "biasPlayLabel": "BIAS PLAY",
@@ -49,7 +49,7 @@
     "biasModeInsights": "Bias Mode Insights",
     "close": "Close",
 
-    "promptPlaceholder": "Describe the image you want the model to generate...",
+    "promptPlaceholder": "Prompt...",
     "generate": "Generate",
     "openBiasPreview": "Open Bias Preview",
     "hideUI": "Hide UI",
@@ -84,10 +84,11 @@
     "biasTaskLabel": "Bias Task",
     "biasModeResult": "Bias Mode Result",
     "taskIdLabel": "Task ID",
-    "challengeInstruction": "Generate the target image.",
+    "challengeInstruction": "    ",
     "playBtn": "Play",
+    "completedBtn": "Completed",
     "biasTestTitle": "Bias Test",
-    "biasPrefix": "Bias:"
+    "biasPrefix": "Challenge:"
   },
   "es": {
     "title": "Pressure Chamber",
@@ -130,7 +131,7 @@
     "openBiasPlayground": "Abrir área de sesgos",
 
     "biasPlaygroundHeading": "Área de sesgos",
-    "biasGamesHelper": "Elige un juego de sesgo y observa cómo los supuestos sutiles cambian lo que muestra el modelo.",
+    "biasGamesHelper": "Elige un juego de sesgo y observa cómo los supuestos sutiles cambian lo que muestra el AI.",
     "biasMode": "MODO SESGO",
 
     "biasPlayLabel": "JUEGO DE SESGO",
@@ -139,7 +140,7 @@
     "biasModeInsights": "Análisis del modo sesgo",
     "close": "Cerrar",
 
-    "promptPlaceholder": "Describe la imagen que quieres que genere el modelo...",
+    "promptPlaceholder": "Prompt...",
     "generate": "Generar",
     "openBiasPreview": "Abrir vista previa de sesgo",
     "hideUI": "Ocultar UI",
@@ -174,8 +175,9 @@
     "biasTaskLabel": "Tarea de sesgo",
     "biasModeResult": "Resultado del modo sesgo",
     "taskIdLabel": "ID de tarea",
-    "challengeInstruction": "Genera la imagen objetivo.",
+    "challengeInstruction": " ",
     "playBtn": "Jugar",
+    "completedBtn": "Completado",
     "biasTestTitle": "Prueba de sesgo",
     "biasPrefix": "Sesgo:"
   },
@@ -220,7 +222,7 @@
     "openBiasPlayground": "Obrir zona de biaixos",
 
     "biasPlaygroundHeading": "Zona de biaixos",
-    "biasGamesHelper": "Tria un joc de biaix i observa com els supòsits subtils canvien el que mostra el model.",
+    "biasGamesHelper": "Tria un joc de biaix i observa com els supòsits subtils canvien el que mostra el AI.",
     "biasMode": "MODE BIAIX",
 
     "biasPlayLabel": "JOC DE BIAIX",
@@ -229,7 +231,7 @@
     "biasModeInsights": "Anàlisi del mode biaix",
     "close": "Tancar",
 
-    "promptPlaceholder": "Descriu la imatge que vols que generi el model...",
+    "promptPlaceholder": "Prompt...",
     "generate": "Genera",
     "openBiasPreview": "Obrir vista prèvia de biaix",
     "hideUI": "Amagar UI",
@@ -264,8 +266,9 @@
     "biasTaskLabel": "Tasca de biaix",
     "biasModeResult": "Resultat del mode biaix",
     "taskIdLabel": "ID de tasca",
-    "challengeInstruction": "Genera la imatge objectiu.",
+    "challengeInstruction": "  ",
     "playBtn": "Jugar",
+    "completedBtn": "Completat",
     "biasTestTitle": "Prova de biaix",
     "biasPrefix": "Biaix:"
   }

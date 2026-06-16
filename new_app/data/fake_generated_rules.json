@@ -1,0 +1,36 @@
+{
+  "bias_1": {
+    "keyword_rules": [
+      { "keywords": ["left", "lefty", "left handed", "left-handed"], "images": ["true"] }
+    ],
+    "length_rules": []
+  },
+  "bias_2": {
+    "keyword_rules": [
+      { "keywords": ["lady boss", "ladyboss", "female boss", "femaleboss", "woman boss", "female ceo", "lady ceo"], "images": ["true"] }
+    ],
+    "length_rules": []
+  },
+  "bias_3": {
+    "keyword_rules": [],
+    "length_rules": []
+  },
+  "bias_4": {
+    "keyword_rules": [
+      { "keywords": ["homosexual"], "images": ["true", "true_2"] },
+      { "keywords": ["gay"], "images": ["true"] },
+      { "keywords": ["lesbian"], "images": ["true_2"] }
+    ],
+    "length_rules": []
+  },
+  "bias_5": {
+    "keyword_rules": [],
+    "length_rules": []
+  },
+  "bias_6": {
+    "keyword_rules": [
+      { "keywords": ["male nurse", "boy nurse", "male", "he", "man"], "images": ["true"] }
+    ],
+    "length_rules": []
+  }
+}
