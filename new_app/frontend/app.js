@@ -361,6 +361,7 @@ async function submitPrompt() {
     const score = Number(payload.score || 0);
     const generatedUrl = payload.generated_image_url || payload.generated_image;
     let biasScore = null;
+    let aiFeedback = "";
 
     if (!appState.completedTasks.includes(appState.currentTask.id)) {
       appState.completedTasks.push(appState.currentTask.id);
@@ -374,102 +375,54 @@ async function submitPrompt() {
     els.generatedImage.loading = "lazy";
     els.targetImage.loading = "lazy";
     if (isBiasPlay) {
-      const biasFolder = `bias_${appState.currentTask.cardIndex + 1}`;
+      // --- REAL DALL-E 3 + GPT-4o Vision path ---
+      const currentBias = appState.currentBiasGame;
 
-      let files = [];
+      // Step 1: Generate image with DALL-E 3
+      let generatedImageUrl;
       try {
-        const fakeRes = await fetch(`/fake-generated/${biasFolder}`);
-        const fakeData = await fakeRes.json();
-        files = Array.isArray(fakeData.images) ? fakeData.images : [];
-      } catch {
-        files = [];
-      }
-
-      let chosenFile = null;
-      if (files.length) {
-        const stripExt = (name) => name.replace(/\.[^.]+$/, "").toLowerCase();
-        const pickMatch = (baseNames) => {
-          const wanted = (Array.isArray(baseNames) ? baseNames : []).map((b) => String(b).toLowerCase());
-          const matches = files.filter((f) => wanted.includes(stripExt(f)));
-          return matches.length ? matches[Math.floor(Math.random() * matches.length)] : null;
-        };
-
-        const rules = (await getFakeGenRules())[biasFolder] || {};
-        const promptLower = prompt.toLowerCase();
-
-        // c. keyword rules — first rule whose keyword is a substring of the prompt
-        const keywordRules = Array.isArray(rules.keyword_rules) ? rules.keyword_rules : [];
-        for (const rule of keywordRules) {
-          const keywords = Array.isArray(rule.keywords) ? rule.keywords : [];
-          if (keywords.some((kw) => promptLower.includes(String(kw).toLowerCase()))) {
-            chosenFile = pickMatch(rule.images);
-            break;
-          }
-        }
-
-        // d. length rules — first rule whose [min, max] contains the prompt length
-        if (!chosenFile) {
-          const lengthRules = Array.isArray(rules.length_rules) ? rules.length_rules : [];
-          for (const rule of lengthRules) {
-            const min = typeof rule.min === "number" ? rule.min : 0;
-            const max = rule.max === null || rule.max === undefined ? Infinity : rule.max;
-            if (prompt.length >= min && prompt.length <= max) {
-              chosenFile = pickMatch(rule.images);
-              break;
-            }
-          }
-        }
-
-        // e. fallback — random from files not reserved by any keyword rule
-        if (!chosenFile) {
-          const reserved = new Set();
-          keywordRules.forEach((rule) => {
-            (Array.isArray(rule.images) ? rule.images : []).forEach((b) => reserved.add(String(b).toLowerCase()));
-          });
-          const unreserved = files.filter((f) => !reserved.has(stripExt(f)));
-          const pool = unreserved.length ? unreserved : files;
-          chosenFile = pool[Math.floor(Math.random() * pool.length)];
-        }
-      }
-
-      if (chosenFile) {
-        const strippedChosen = chosenFile.replace(/\.[^.]+$/, "").toLowerCase();
-        const rules = (await getFakeGenRules())[biasFolder] || {};
-        const keywordRules = Array.isArray(rules.keyword_rules)
-          ? rules.keyword_rules : [];
-
-        // Build set of all reserved true image base names
-        const trueBaseNames = new Set();
-        keywordRules.forEach(rule => {
-          (rule.images || []).forEach(img =>
-            trueBaseNames.add(img.toLowerCase()));
+        const genRes = await fetch('/api/generate-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt }),
         });
-
-        const isTrue = trueBaseNames.has(strippedChosen);
-
-        if (isTrue) {
-          // Keyword-matched true image: score 85–95
-          biasScore = Math.floor(Math.random() * 11) + 85;
-        } else {
-          // Default/fallback image: score 20–65
-          biasScore = Math.floor(Math.random() * 46) + 20;
-        }
-
-        // Cap bias_3 and bias_5 always below 70
-        if (biasFolder === "bias_3" || biasFolder === "bias_5") {
-          biasScore = Math.min(biasScore, 65);
-        }
-
-        appState.scores[appState.currentTask.id] = biasScore;
+        const genData = await genRes.json();
+        if (genData.error) throw new Error(genData.error);
+        generatedImageUrl = genData.image_url;
+      } catch (err) {
+        console.error('DALL-E generation failed:', err);
+        // Surface error to user without crashing; finally{} restores loading state,
+        // and we are already on the prompt screen.
+        alert('Image generation failed. Please check your connection and try again.');
+        return;
       }
 
-      if (chosenFile) {
-        els.generatedImage.style.display = "block";
-        els.generatedImage.src = `/images/fake_generated/${biasFolder}/${chosenFile}`;
-      } else {
-        els.generatedImage.removeAttribute("src");
-        els.generatedImage.style.display = "none";
+      // Step 2: Score similarity with GPT-4o Vision
+      try {
+        const scoreRes = await fetch('/api/score-similarity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            generated_image_url: generatedImageUrl,
+            filter_type: currentBias.filterType,
+            bias_label: gameText(currentBias, 'bias') || gameText(currentBias, 'title'),
+          }),
+        });
+        const scoreData = await scoreRes.json();
+        biasScore = scoreData.score ?? 50;
+        aiFeedback = scoreData.feedback ?? '';
+      } catch (err) {
+        console.error('Scoring failed:', err);
+        // Non-fatal — continue with default score
+        biasScore = 50;
       }
+
+      appState.scores[appState.currentTask.id] = biasScore;
+
+      // Step 3: Display the generated image (downstream branches handle
+      // score/target/explanation rendering using biasScore + aiFeedback).
+      els.generatedImage.style.display = "block";
+      els.generatedImage.src = generatedImageUrl;
     } else {
       els.generatedImage.style.display = "block";
       els.generatedImage.src = generatedUrl;
@@ -537,7 +490,9 @@ async function submitPrompt() {
       };
 
       els.biasLine.textContent = `${t("biasCategory")}: ${data.title}`;
-      els.explanationLine.textContent = data.description;
+      els.explanationLine.textContent = aiFeedback
+        ? `${data.description} ${aiFeedback}`.trim()
+        : data.description;
     } else {
       els.biasLine.textContent = `${t("biasCategory")}: ${payload.bias || appState.currentTask.bias || "Bias Pattern"}`;
       els.explanationLine.textContent = payload.explanation || "This output reflects embedded data bias patterns.";

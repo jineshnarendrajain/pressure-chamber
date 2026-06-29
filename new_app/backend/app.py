@@ -8,6 +8,24 @@ from flask import Flask, jsonify, request, send_from_directory
 
 from similarity import calculate_similarity_score
 
+import os
+import base64
+from dotenv import load_dotenv
+from openai import OpenAI
+
+load_dotenv(Path(__file__).parent / ".env")
+_openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+_TARGET_IMAGE_DIR = Path(__file__).parent.parent / "images" / "new_test_target"
+_TARGET_IMAGE_MAP = {
+    "right_hand":              "bias_1.png",
+    "gender":                  "bias_2.png",
+    "language":                "bias_3.png",
+    "architecture":            "bias_4.png",
+    "global_south_flattening": "bias_5.png",
+    "nurse":                   "bias_6.png",
+}
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 TASKS_PATH = DATA_DIR / "tasks.json"
@@ -266,6 +284,96 @@ def add_leaderboard_score():
     save_json(LEADERBOARD_PATH, board)
 
     return jsonify({"ok": True})
+
+
+@app.route('/api/generate-image', methods=['POST'])
+def api_generate_image():
+    data = request.get_json(force=True)
+    prompt = (data.get('prompt') or '').strip()
+    if not prompt:
+        return jsonify({'error': 'No prompt provided'}), 400
+    try:
+        resp = _openai_client.images.generate(
+            model="gpt-image-1",
+            prompt=prompt,
+            size="1024x1024",
+            quality="medium",
+            n=1,
+        )
+        b64 = resp.data[0].b64_json
+        return jsonify({'image_url': f"data:image/png;base64,{b64}"})
+    except Exception as e:
+        app.logger.error(f"DALL-E generation error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/score-similarity', methods=['POST'])
+def api_score_similarity():
+    data = request.get_json(force=True)
+    generated_url = data.get('generated_image_url', '').strip()
+    filter_type   = data.get('filter_type', '').strip()
+    bias_label    = data.get('bias_label', 'this AI bias concept').strip()
+
+    if not generated_url or not filter_type:
+        return jsonify({'error': 'Missing generated_image_url or filter_type'}), 400
+
+    target_filename = _TARGET_IMAGE_MAP.get(filter_type)
+    if not target_filename:
+        return jsonify({'error': f'No target image for filter_type: {filter_type}'}), 400
+
+    target_path = _TARGET_IMAGE_DIR / target_filename
+    try:
+        target_b64 = base64.b64encode(target_path.read_bytes()).decode()
+        ext = target_filename.rsplit('.', 1)[-1].lower()
+        media_type = 'image/jpeg' if ext in ('jpg', 'jpeg') else f'image/{ext}'
+    except FileNotFoundError:
+        app.logger.error(f"Target image not found: {target_path}")
+        return jsonify({'score': 50, 'feedback': 'Target image unavailable — scoring skipped.'}), 200
+
+    system_prompt = (
+        f"You are a judge for an educational game that teaches players about AI bias — specifically '{bias_label}'.\n\n"
+        "The player was shown a TARGET image (Image 1) that represents what an AI free of this bias would generate.\n"
+        "The player then wrote a text prompt and generated their own image (Image 2).\n\n"
+        "Your job is to score how well the player UNDERSTOOD and CHALLENGED the bias.\n"
+        "A high score means the player's image:\n"
+        "  • Avoids or subverts the stereotypes associated with this bias\n"
+        "  • Represents diversity, fairness, or inclusivity relevant to this bias\n"
+        "  • Shows awareness of what an unbiased AI output would look like\n\n"
+        "Use the target image only as a reference for what 'beating the bias' looks like — "
+        "not to penalise different art styles or compositions.\n\n"
+        "Score 0–100 where:\n"
+        "  0–30 = the image reinforces or ignores the bias\n"
+        "  31–60 = partial awareness, some effort to challenge the bias\n"
+        "  61–85 = good understanding, clearly attempts to subvert the bias\n"
+        "  86–100 = excellent — strongly challenges the bias, on par with the target\n\n"
+        "Return ONLY valid JSON with no markdown fences:\n"
+        '{"score": <integer 0-100>, "feedback": "<one sentence telling the player what they did well or how to improve>"}'
+    )
+
+    try:
+        vision_resp = _openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": system_prompt},
+                    {"type": "image_url",
+                     "image_url": {"url": f"data:{media_type};base64,{target_b64}"}},
+                    {"type": "image_url",
+                     "image_url": {"url": generated_url}},
+                ]
+            }],
+            max_tokens=200,
+        )
+        raw = vision_resp.choices[0].message.content.strip()
+        result = json.loads(raw)
+        # Clamp score to valid range
+        result['score'] = max(0, min(100, int(result.get('score', 50))))
+        return jsonify(result)
+    except Exception as e:
+        app.logger.error(f"GPT-4o Vision scoring error: {e}")
+        # Graceful fallback — game continues even if scoring fails
+        return jsonify({'score': 50, 'feedback': 'Great effort! Scoring is temporarily unavailable.'})
 
 
 if __name__ == "__main__":
