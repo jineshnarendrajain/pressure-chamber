@@ -1098,6 +1098,11 @@ textarea:focus-visible {
   margin-bottom: 8px;
 }
 
+#explanation-line {
+  font-size: 28px;
+  font-weight: bold;
+}
+
 @keyframes cinemaFade {
   from {
     opacity: 0;

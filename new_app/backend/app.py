@@ -350,6 +350,7 @@ def api_score_similarity():
         '{"score": <integer 0-100>, "feedback": "<one sentence telling the player what they did well or how to improve>"}'
     )
 
+    app.logger.info(f"Scoring — filter_type: {filter_type} | bias_label: {bias_label} | prompt in system: {system_prompt[:120]}")
     try:
         vision_resp = _openai_client.chat.completions.create(
             model="gpt-4o",
